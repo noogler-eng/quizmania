@@ -1,49 +1,103 @@
-import { Server, Socket } from "socket.io"
-import { IoManager } from "./ioManager"
+import { Socket } from "socket.io"
+import { Quiz } from "../quiz"
+
+interface createQuizInterface{
+    adminUsername: string,
+    adminPassword: string,
+    adminSocket: Socket
+}
+
+interface dataQuizInterface{
+    roomId: string,
+    question: string, 
+    options: {
+        id: string,
+        title: string,
+    }[], 
+    answer: string, 
+    image?: string, 
+    adminPassword: string
+}
+
+interface nextQuizInterface{
+    roomId: string
+}
+
+interface userInterface{
+    username: string,
+    roomId: string,
+    solverSocket: Socket
+}
+
+interface userSubmissionInterface{
+    username: string,
+    roomId: string,
+    questionId: string,
+    answer: string
+}
+
 
 export class QuizManager{
 
-    private quizes: {
-        roomId: string,
-        problems: {
-            question: string,
-            answer: string[]
-        }[],
-        users: {
-            username: string,
-            type: "admin" | "solver"
-            points: number,
-            socket: Socket
-            roomId: string
-        }
-    }[]
+    private quizes: Quiz[]
 
+    private roomId: string;
+    private roomIdToQuiz = new Map<string, Quiz>();
     constructor(){
         this.quizes = [];
+        this.roomId = "";
     }
 
-    addQuiz(){
-        const io: Server = IoManager.getIo();
-        const roomId = "";
-        this.start(io, roomId);
+    // ---- // ADMIN WORKFLOW // ---- //
+    generateRandomString(length: number): string {
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        let result = '';
+        const charactersLength = characters.length;
+        for (let i = 0; i < length; i++) {
+            const randomIndex = Math.floor(Math.random() * charactersLength);
+            result += characters.charAt(randomIndex);
+        }
+        return result;
     }
 
-    public start(io: Server, roomId: string){
-        io.to(roomId).emit("message", {
-            type: "quiz start",
-        });
-        this.nextQues(io, roomId);
+    createQuiz(data: createQuizInterface){
+        this.roomId = this.generateRandomString(4);
+        const quiz = new Quiz(data.adminUsername, this.roomId, data.adminPassword, data.adminSocket);
+        this.roomIdToQuiz.set(this.roomId, quiz);
+        this.quizes.push(quiz);
+        return this.roomId;
     }
 
-    public nextQues(io: Server, roomId: string){
-        const quiz = this.quizes.find(x => roomId === x.roomId);
-
-        io.to(roomId).emit("message", {
-            type: "quiz start",
-            question: quiz?.problems[0].question,
-            options: quiz?.problems[0].answer
-        });
+    addProblem(data: dataQuizInterface){
+        const quiz = this.roomIdToQuiz.get(data.roomId);
+        quiz?.addProblems(data.question, data.options, data.answer, data.image, data.adminPassword);
     }
 
+    nextQuestion(data: nextQuizInterface){
+        const quiz = this.roomIdToQuiz.get(data.roomId);
+        quiz?.nextProblem();
+    }
+
+    start(data: nextQuizInterface){
+        const quiz = this.roomIdToQuiz.get(data.roomId);
+        quiz?.start();
+    }
+
+    // ---- // SOLVER WORKFLOW // ---- //
+    joinUser(data: userInterface){
+        const quiz = this.roomIdToQuiz.get(data.roomId);
+        quiz?.addUser(data.username, data.roomId, data.solverSocket);
+    }
+
+    submit(data: userSubmissionInterface){
+        const quiz = this.roomIdToQuiz.get(data.roomId);
+        quiz?.submit(data.username, data.questionId, data.answer);
+    }
+
+    // ---- // GENERAL WORKFLOW // ---- //
+    showLeaderboard(data: userInterface){
+        const quiz = this.roomIdToQuiz.get(data.roomId);
+        quiz?.showLeaderboard();
+    }
 
 }

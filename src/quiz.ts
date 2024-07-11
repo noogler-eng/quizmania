@@ -1,39 +1,54 @@
 import { Server, Socket } from "socket.io";
 import { IoManager } from "./managers/ioManager";
 
+export interface problemInterface{
+    questionId: string,
+    question: string,
+    options: {
+        id: string,
+        title: string,
+    }[],
+    image?: string,
+    type?: 'single' | 'multiple',
+    answer: string,
+}
+
+export interface userInterface{
+    username: string,
+    roomId: string,
+    solverSocket: Socket
+}
+
+export interface adminInterface{
+    username: string,
+    roomId: string,
+    adminPassword: string,
+    adminSocket: Socket
+}
 
 
 export class Quiz{
 
     private roomId: string;
-    private admin: string;
-    private adminPassword: string;
+    private admin: adminInterface;
     private hasStarted = false;
-    private socketAdmin;
     private io: Server;
-    public problems: {
-        question: string,
-        options: {
-            id: string,
-            title: string,
-        }[],
-        image?: string,
-        type?: 'single' | 'multiple',
-        answer: string,
-    }[]
-    public users: {
-        username: string,
-        solverSocket: Socket,
-    }[] 
+    public problems: problemInterface[];
+    public users: userInterface[];  
     public activeProblem;
 
-    constructor(roomId: string, admin: string, adminPassword: string, socketAdmin: Socket){
+    constructor(adminUsername: string, roomId: string, adminPassword: string, adminSocket: Socket){
         this.roomId = roomId;
         this.io = IoManager.getIo();
-        this.admin = admin;
-        this.adminPassword = adminPassword;
+        
+        this.admin = {
+            username: adminUsername,
+            roomId: roomId,
+            adminPassword: adminPassword,
+            adminSocket: adminSocket,
+        };
+        
         this.problems = [];
-        this.socketAdmin = socketAdmin;
         this.users = [];
         this.activeProblem = 0;
     }
@@ -47,25 +62,26 @@ export class Quiz{
     }
 
     // only admin can add question
-    addProblems(question: string, options: any, answer: string, image: string = '', type: 'single', adminPassword: string){
+    addProblems(question: string, options: any, answer: string, image: string = '', adminPassword: string){
         if(this.hasStarted != true) return;
         
-        if(adminPassword != this.adminPassword){
-            this.socketAdmin.emit("message", {
+        if(adminPassword != this.admin.adminPassword){
+            this.admin.adminSocket.emit("message", {
                 msg: "someone has tried to add problem in place of you"
             })
             return;
         }
 
         this.problems.push({
+            questionId: (this.problems.length + 1).toString(),
             question: question,
             options: options,
             answer: answer,
             image: image,
-            type: type
+            type: 'single'
         })
 
-        this.socketAdmin.emit("message", {
+        this.admin.adminSocket.emit("message", {
             msg: "problem has been added into problems section"
         })
 
@@ -85,14 +101,35 @@ export class Quiz{
         this.activeProblem++;
     }
 
-    addUser(username: string, solverSocket: Socket){
+    addUser(username: string, roomId: string, solverSocket: Socket){
         if(this.hasStarted) return;
-        this.users.push({username, solverSocket});
+        const newUser = {
+            username: username,
+            roomId: roomId,
+            solverSocket: solverSocket
+        }
+        this.users.push(newUser);
     }
 
     showLeaderboard(){
         this.io.to(this.roomId).emit("message", {
             msg: this.users
         })
+    }
+
+    submit(username: string, questionId: string, answer: string){
+        const user = this.users.find(user => user.username === username);
+        
+        const question = this.problems.find(question => questionId == question.questionId);
+        const optionAnswer = question?.options[Number(answer)].title;
+        if( optionAnswer === question?.answer ){
+            user?.solverSocket.send("message", {
+                msg: "right answer"
+            })
+        }else{
+            user?.solverSocket.send("message", {
+                msg: "wrong answer"
+            })
+        }
     }
 }

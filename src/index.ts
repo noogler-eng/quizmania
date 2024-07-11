@@ -6,7 +6,12 @@ import { IoManager } from "./managers/ioManager";
 const io = IoManager.getIo();
   
 io.on('connection', (socket: Socket) => {
-    console.log('a user connected');
+    
+    // 3 - admin events
+
+
+    
+    // 2 - client events
     socket.on('event', (data)=>{
         console.log(typeof(data));
         console.log(data);
