@@ -38,6 +38,7 @@ export class Quiz{
     public activeProblem;
 
     constructor(adminUsername: string, roomId: string, adminPassword: string, adminSocket: Socket){
+        console.log(adminUsername, roomId, adminPassword, adminSocket);
         this.roomId = roomId;
         this.io = IoManager.getIo();
         
@@ -62,9 +63,8 @@ export class Quiz{
     }
 
     // only admin can add question
-    addProblems(question: string, options: any, answer: string, image: string = '', adminPassword: string){
-        if(this.hasStarted != true) return;
-        
+    addProblems(question: string, options: any, answer: string, image: string, adminPassword: string){
+
         if(adminPassword != this.admin.adminPassword){
             this.admin.adminSocket.emit("message", {
                 msg: "someone has tried to add problem in place of you"
@@ -72,19 +72,26 @@ export class Quiz{
             return;
         }
 
-        this.problems.push({
-            questionId: (this.problems.length + 1).toString(),
-            question: question,
-            options: options,
-            answer: answer,
-            image: image,
-            type: 'single'
-        })
+        const prevQuesId = this.problems.length;
 
-        this.admin.adminSocket.emit("message", {
-            msg: "problem has been added into problems section"
-        })
-
+        try{
+            this.problems.push({
+                questionId: (prevQuesId).toString(),
+                question: question,
+                options: options,
+                answer: answer,
+                image: image,
+                type: 'single'
+            })
+    
+            this.admin.adminSocket.emit("message", {
+                msg: "problem has been added into problems section"
+            })
+    
+            return prevQuesId;
+        }catch(error){
+            console.log(error);
+        }
     }
 
     nextProblem(){
@@ -99,6 +106,7 @@ export class Quiz{
             msg: this.problems[this.activeProblem]
         })
         this.activeProblem++;
+        return this.activeProblem - 1;
     }
 
     addUser(username: string, roomId: string, solverSocket: Socket){

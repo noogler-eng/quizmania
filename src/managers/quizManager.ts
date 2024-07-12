@@ -41,11 +41,10 @@ export class QuizManager{
 
     private quizes: Quiz[]
 
-    private roomId: string;
     private roomIdToQuiz = new Map<string, Quiz>();
     constructor(){
         this.quizes = [];
-        this.roomId = "";
+        this.roomIdToQuiz = new Map<string, Quiz>();
     }
 
     // ---- // ADMIN WORKFLOW // ---- //
@@ -61,21 +60,31 @@ export class QuizManager{
     }
 
     createQuiz(data: createQuizInterface){
-        this.roomId = this.generateRandomString(4);
-        const quiz = new Quiz(data.adminUsername, this.roomId, data.adminPassword, data.adminSocket);
-        this.roomIdToQuiz.set(this.roomId, quiz);
+        const roomId = this.generateRandomString(4);
+        const quiz = new Quiz(data.adminUsername, roomId, data.adminPassword, data.adminSocket);
+        this.roomIdToQuiz.set(roomId, quiz);
         this.quizes.push(quiz);
-        return this.roomId;
+        return roomId;
     }
 
     addProblem(data: dataQuizInterface){
-        const quiz = this.roomIdToQuiz.get(data.roomId);
-        quiz?.addProblems(data.question, data.options, data.answer, data.image, data.adminPassword);
+        const quiz = this.roomIdToQuiz.get(data.roomId);        
+        if (!quiz) {
+            throw new Error(`Quiz not found for roomId: ${data.roomId}`);
+        }
+
+        try{
+            const questionId = quiz?.addProblems(data.question, data.options, data.answer, " ", data.adminPassword);
+            return questionId;
+        }catch(error){
+            console.log("error while adding problem", error);
+        }
     }
 
     nextQuestion(data: nextQuizInterface){
         const quiz = this.roomIdToQuiz.get(data.roomId);
-        quiz?.nextProblem();
+        const questionId = quiz?.nextProblem();
+        return questionId;
     }
 
     start(data: nextQuizInterface){

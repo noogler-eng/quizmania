@@ -1,24 +1,13 @@
-// import { Server } from "socket.io";
-// import { createServer } from "http";
 import { Socket } from "socket.io";
 import { IoManager } from "./managers/ioManager";
+import { ConnectionManager } from "./managers/connectionManagers";
 
 const io = IoManager.getIo();
+const cm = new ConnectionManager();
   
 io.on('connection', (socket: Socket) => {
-    
-    // 3 - admin events
-
-
-    
-    // 2 - client events
-    socket.on('event', (data)=>{
-        console.log(typeof(data));
-        console.log(data);
-    })
-    socket.on('disconnect', ()=>{
-        console.log('user disconnected')
-    })
+    console.log("new user is connected");
+    cm.userHandler(socket);
 });
 
 io.listen(3000);

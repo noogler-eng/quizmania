@@ -1,47 +1,84 @@
-import { Socket } from "socket.io"
+import { Socket } from "socket.io";
 import { QuizManager } from "./quizManager";
 import { adminInterface } from "../quiz";
 
+export class ConnectionManager {
+  private qm: any;
+  constructor() {
+    this.qm = new QuizManager();
+  }
 
-export class ConnectionManager{
+  userHandler(socket: Socket) {
+    socket.on("JOIN_ADMIN", (data) => {
+      console.log("creating quiz..");
+      data = JSON.parse(data);
+      const roomId = this.qm.createQuiz({
+        adminUsername: data.username,
+        adminPassword: data.password,
+        adminSocket: socket,
+      });
+      socket.emit("message", {
+        msg: `roomId: ${roomId}`,
+      });
+    });
 
-    private qm: any;
-    constructor(){
-        this.qm = new QuizManager();
-    };
+    socket.on("START", (data) => {
+      this.qm.start({ roomId: data.roomId });
+    });
 
-    userHandler(username: string, roomId: string, socket: Socket){
-        
-        socket.on("JOIN_ADMIN", (data: adminInterface)=>{
-            const roomId = this.qm.createQuiz(data);
-            data.adminSocket.send("message", {
-                msg: `roomId: ${roomId}`
-            })
-        })
+    socket.on("ADD_PROBLEM", (data) => {
+      console.log("adding problem...");
+      data = JSON.parse(data);
+      const questionId = this.qm.addProblem({
+        roomId: data.roomId,
+        question: data.question,
+        options: data.options,
+        answer: data.answer,
+        image: data.image,
+        adminPassword: data.adminPassword,
+      });
+      socket.emit("message", {
+        msg: `questionId: ${questionId}`,
+      });
+    });
 
-        socket.on("START", (data)=>{
-            this.qm.createQuiz(data);
-        })
+    socket.on("NEXT_QUESTION", (data) => {
+      console.log("next question...");
+      data = JSON.parse(data);
+      const questionId = this.qm.nextQuestion({ roomId: data.roomId });
+      socket.emit("message", {
+        msg: `currentQuestionId: ${questionId}`,
+      });
+    });
 
-        socket.on("ADD_PROBLEM", (data)=>{
-            this.qm.addProblem();
-        })
+    socket.on("SHOW_LEADERBOARD", (data) => {
+      console.log("show leaderboard...");
+      data = JSON.parse(data);
+      this.qm.nextQuestion({ roomId: data.roomId });
+    });
 
-        socket.on("NEXT_QUESTION", (data)=>{
-            this.qm.nextQuestion();
-        })
+    socket.on("JOIN_SOLVER", (data) => {
+      console.log("join solver...");
+      data = JSON.parse(data);
+      this.qm.joinUser({
+        username: data.username,
+        roomId: data.roomId,
+        solverSocket: Socket,
+      });
+      socket.emit("message", {
+        msg: "user joined sussccesfully",
+      });
+    });
 
-        socket.on("SHOW_LEADERBOARD", (data)=>{
-            this.qm.nextQuestion();
-        })
-        
-
-        socket.on("JOIN_SOLVER", (data)=>{
-            this.qm.joinUser(data);
-        })
-
-        socket.on("SUBMISSION", (data)=>{
-            this.qm.submit(data);
-        })
-    }
+    socket.on("SUBMISSION", (data) => {
+      console.log("submission...");
+      data = JSON.parse(data);
+      this.qm.submit({
+        username: data.username,
+        roomId: data.roomId,
+        questionId: data.questionId,
+        answer: data.answer,
+      });
+    });
+  }
 }
