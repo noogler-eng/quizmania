@@ -15,3 +15,6 @@
     - leaderboard
     - questions
     - passing anwer and user type to server
+
+4. problems facing
+    - debug whole code and found JSON.parse() is missing

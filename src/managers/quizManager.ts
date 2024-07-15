@@ -30,7 +30,7 @@ interface userInterface{
 }
 
 interface userSubmissionInterface{
-    username: string,
+    userSocket: Socket,
     roomId: string,
     questionId: string,
     answer: string
@@ -100,7 +100,7 @@ export class QuizManager{
 
     submit(data: userSubmissionInterface){
         const quiz = this.roomIdToQuiz.get(data.roomId);
-        quiz?.submit(data.username, data.questionId, data.answer);
+        quiz?.submit(data.userSocket, data.questionId, data.answer);
     }
 
     // ---- // GENERAL WORKFLOW // ---- //

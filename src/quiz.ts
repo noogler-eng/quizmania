@@ -38,7 +38,6 @@ export class Quiz{
     public activeProblem;
 
     constructor(adminUsername: string, roomId: string, adminPassword: string, adminSocket: Socket){
-        console.log(adminUsername, roomId, adminPassword, adminSocket);
         this.roomId = roomId;
         this.io = IoManager.getIo();
         
@@ -56,7 +55,7 @@ export class Quiz{
 
     start(){
         this.hasStarted = true;
-        this.io.to(this.roomId).emit("message", {
+        this.io.emit("message", {
             msg: "quiz has been started"
         })
         this.nextProblem();
@@ -96,13 +95,13 @@ export class Quiz{
 
     nextProblem(){
         if(this.activeProblem >= this.problems.length) {
-            this.io.to(this.roomId).emit("message", {
+            this.io.emit("message", {
                 msg: "all problems are completed"
             })
             return;
         }
         
-        this.io.to(this.roomId).emit("message", {
+        this.io.emit("message", {
             msg: this.problems[this.activeProblem]
         })
         this.activeProblem++;
@@ -120,22 +119,21 @@ export class Quiz{
     }
 
     showLeaderboard(){
-        this.io.to(this.roomId).emit("message", {
+        this.io.emit("message", {
             msg: this.users
         })
     }
 
-    submit(username: string, questionId: string, answer: string){
-        const user = this.users.find(user => user.username === username);
+    submit(socket: Socket, questionId: string, answer: string){
         
         const question = this.problems.find(question => questionId == question.questionId);
         const optionAnswer = question?.options[Number(answer)].title;
         if( optionAnswer === question?.answer ){
-            user?.solverSocket.send("message", {
+            socket.emit("message", {
                 msg: "right answer"
             })
         }else{
-            user?.solverSocket.send("message", {
+            socket.emit("message", {
                 msg: "wrong answer"
             })
         }

@@ -23,6 +23,7 @@ export class ConnectionManager {
     });
 
     socket.on("START", (data) => {
+      data = JSON.parse(data);
       this.qm.start({ roomId: data.roomId });
     });
 
@@ -74,7 +75,7 @@ export class ConnectionManager {
       console.log("submission...");
       data = JSON.parse(data);
       this.qm.submit({
-        username: data.username,
+        userSocket: socket,
         roomId: data.roomId,
         questionId: data.questionId,
         answer: data.answer,
