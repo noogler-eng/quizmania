@@ -4,6 +4,7 @@ import { Quiz } from "../quiz"
 interface createQuizInterface{
     adminUsername: string,
     adminPassword: string,
+    timeLimit: number
     adminSocket: Socket
 }
 
@@ -19,21 +20,10 @@ interface dataQuizInterface{
     adminPassword: string
 }
 
-interface nextQuizInterface{
-    roomId: string
-}
-
 interface userInterface{
     username: string,
     roomId: string,
     solverSocket: Socket
-}
-
-interface userSubmissionInterface{
-    userSocket: Socket,
-    roomId: string,
-    questionId: string,
-    answer: string
 }
 
 
@@ -61,7 +51,7 @@ export class QuizManager{
 
     createQuiz(data: createQuizInterface){
         const roomId = this.generateRandomString(4);
-        const quiz = new Quiz(data.adminUsername, roomId, data.adminPassword, data.adminSocket);
+        const quiz = new Quiz(data.adminUsername, roomId, data.adminPassword, data.timeLimit, data.adminSocket);
         this.roomIdToQuiz.set(roomId, quiz);
         this.quizes.push(quiz);
         return roomId;
@@ -74,22 +64,25 @@ export class QuizManager{
         }
 
         try{
-            const questionId = quiz?.addProblems(data.question, data.options, data.answer, " ", data.adminPassword);
+            const questionId = quiz?.addProblems(data.question, data.options, data.answer, data.adminPassword);
             return questionId;
         }catch(error){
             console.log("error while adding problem", error);
         }
     }
 
-    nextQuestion(data: nextQuizInterface){
-        const quiz = this.roomIdToQuiz.get(data.roomId);
-        const questionId = quiz?.nextProblem();
-        return questionId;
-    }
+    // nextQuestion(data: nextQuizInterface){
+    //     const quiz = this.roomIdToQuiz.get(data.roomId);
+    //     const questionId = quiz?.nextProblem();
+    //     return questionId;
+    // }
 
-    start(data: nextQuizInterface){
+    start(data: {
+        roomId: string,
+        adminPassword: string
+    }){
         const quiz = this.roomIdToQuiz.get(data.roomId);
-        quiz?.start();
+        quiz?.start(data.adminPassword);
     }
 
     // ---- // SOLVER WORKFLOW // ---- //
@@ -98,7 +91,12 @@ export class QuizManager{
         quiz?.addUser(data.username, data.roomId, data.solverSocket);
     }
 
-    submit(data: userSubmissionInterface){
+    submit(data: {
+        roomId: string,
+        userSocket: Socket,
+        questionId: number,
+        answer: number
+    }){
         const quiz = this.roomIdToQuiz.get(data.roomId);
         quiz?.submit(data.userSocket, data.questionId, data.answer);
     }

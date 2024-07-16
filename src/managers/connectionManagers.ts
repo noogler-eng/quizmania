@@ -1,6 +1,5 @@
 import { Socket } from "socket.io";
 import { QuizManager } from "./quizManager";
-import { adminInterface } from "../quiz";
 
 export class ConnectionManager {
   private qm: any;
@@ -15,16 +14,17 @@ export class ConnectionManager {
       const roomId = this.qm.createQuiz({
         adminUsername: data.username,
         adminPassword: data.password,
+        timeLimit: data.timeLimit,
         adminSocket: socket,
       });
-      socket.emit("message", {
+      socket.emit("admin_msg", {
         msg: `roomId: ${roomId}`,
       });
     });
 
     socket.on("START", (data) => {
       data = JSON.parse(data);
-      this.qm.start({ roomId: data.roomId });
+      this.qm.start({ roomId: data.roomId, adminPassword: data.adminPassword });
     });
 
     socket.on("ADD_PROBLEM", (data) => {
@@ -38,19 +38,19 @@ export class ConnectionManager {
         image: data.image,
         adminPassword: data.adminPassword,
       });
-      socket.emit("message", {
+      socket.emit("question_add", {
         msg: `questionId: ${questionId}`,
       });
     });
 
-    socket.on("NEXT_QUESTION", (data) => {
-      console.log("next question...");
-      data = JSON.parse(data);
-      const questionId = this.qm.nextQuestion({ roomId: data.roomId });
-      socket.emit("message", {
-        msg: `currentQuestionId: ${questionId}`,
-      });
-    });
+    // socket.on("NEXT_QUESTION", (data) => {
+    //   console.log("next question...");
+    //   data = JSON.parse(data);
+    //   const questionId = this.qm.nextQuestion({ roomId: data.roomId });
+    //   socket.emit("message", {
+    //     msg: `currentQuestionId: ${questionId}`,
+    //   });
+    // });
 
     socket.on("SHOW_LEADERBOARD", (data) => {
       console.log("show leaderboard...");
@@ -66,7 +66,7 @@ export class ConnectionManager {
         roomId: data.roomId,
         solverSocket: Socket,
       });
-      socket.emit("message", {
+      socket.emit("user_msg", {
         msg: "user joined sussccesfully",
       });
     });

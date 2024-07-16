@@ -2,14 +2,12 @@ import { Server, Socket } from "socket.io";
 import { IoManager } from "./managers/ioManager";
 
 export interface problemInterface{
-    questionId: string,
+    questionId: number,
     question: string,
     options: {
-        id: string,
+        id: number,
         title: string,
     }[],
-    image?: string,
-    type?: 'single' | 'multiple',
     answer: string,
 }
 
@@ -30,14 +28,16 @@ export interface adminInterface{
 export class Quiz{
 
     private roomId: string;
+    private timeLimit: number;
     private admin: adminInterface;
     private hasStarted = false;
     private io: Server;
     public problems: problemInterface[];
     public users: userInterface[];  
     public activeProblem;
+    private isQuizEnd;
 
-    constructor(adminUsername: string, roomId: string, adminPassword: string, adminSocket: Socket){
+    constructor(adminUsername: string, roomId: string, adminPassword: string, timeLimit: number, adminSocket: Socket){
         this.roomId = roomId;
         this.io = IoManager.getIo();
         
@@ -51,21 +51,41 @@ export class Quiz{
         this.problems = [];
         this.users = [];
         this.activeProblem = 0;
+        this.isQuizEnd = false;
+        this.timeLimit = timeLimit;
     }
 
-    start(){
+    // only admin can start quiz
+    start(adminPassword: string){
+        if(this.isQuizEnd == true || this.admin.adminPassword != adminPassword) {
+            this.admin.adminSocket.emit("quiz_started", {
+                msg: "quiz has already been ended"
+            })
+            return;
+        }
+
+        if(this.hasStarted == true || this.admin.adminPassword != adminPassword) {
+            this.admin.adminSocket.emit("quiz_started", {
+                msg: "quiz has been currently running"
+            })
+            return;
+        }
+
         this.hasStarted = true;
-        this.io.emit("message", {
+        this.io.emit("quiz_started", {
             msg: "quiz has been started"
         })
-        this.nextProblem();
+        const interval = setInterval(()=>{
+            this.nextProblem();
+            if(this.isQuizEnd == true) clearInterval(interval);
+        }, this.timeLimit * 1000);
     }
 
     // only admin can add question
-    addProblems(question: string, options: any, answer: string, image: string, adminPassword: string){
+    addProblems(question: string, options: any, answer: string, adminPassword: string){
 
         if(adminPassword != this.admin.adminPassword){
-            this.admin.adminSocket.emit("message", {
+            this.admin.adminSocket.emit("admin_question_added", {
                 msg: "someone has tried to add problem in place of you"
             })
             return;
@@ -75,15 +95,13 @@ export class Quiz{
 
         try{
             this.problems.push({
-                questionId: (prevQuesId).toString(),
+                questionId: prevQuesId,
                 question: question,
                 options: options,
                 answer: answer,
-                image: image,
-                type: 'single'
             })
     
-            this.admin.adminSocket.emit("message", {
+            this.admin.adminSocket.emit("admin_question_added", {
                 msg: "problem has been added into problems section"
             })
     
@@ -93,21 +111,26 @@ export class Quiz{
         }
     }
 
+    // problem are going next in timeLimit again and again
+    // if quizEnded then interval will be clear
     nextProblem(){
         if(this.activeProblem >= this.problems.length) {
-            this.io.emit("message", {
+            this.io.emit("quiz_end", {
                 msg: "all problems are completed"
             })
+            this.isQuizEnd = true;
             return;
         }
         
-        this.io.emit("message", {
+        this.io.emit("question", {
             msg: this.problems[this.activeProblem]
         })
         this.activeProblem++;
         return this.activeProblem - 1;
     }
 
+    // any user can add
+    // 
     addUser(username: string, roomId: string, solverSocket: Socket){
         if(this.hasStarted) return;
         const newUser = {
@@ -119,21 +142,21 @@ export class Quiz{
     }
 
     showLeaderboard(){
-        this.io.emit("message", {
+        this.io.emit("leaderboard", {
             msg: this.users
         })
     }
 
-    submit(socket: Socket, questionId: string, answer: string){
+    submit(socket: Socket, questionId: number, answer: number){
         
         const question = this.problems.find(question => questionId == question.questionId);
-        const optionAnswer = question?.options[Number(answer)].title;
+        const optionAnswer = question?.options[answer].title;
         if( optionAnswer === question?.answer ){
-            socket.emit("message", {
+            socket.emit("answer", {
                 msg: "right answer"
             })
         }else{
-            socket.emit("message", {
+            socket.emit("answer", {
                 msg: "wrong answer"
             })
         }
